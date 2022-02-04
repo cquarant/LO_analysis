@@ -89,15 +89,15 @@ for step in range(len(th)):
     XT=np.array(treeResults[th[step]].Xtalk_median_barCoinc)
     
     histos['LY_vs_pos'].SetPoint(istep,th[step]*thscan_step,peak_mean[peak_mean>60].mean())
-    histos['LY_vs_pos'].SetPointError(istep,0.5,peak_mean[peak_mean>60].std()/4.)
+    histos['LY_vs_pos'].SetPointError(istep,0.5,peak_mean[peak_mean>60].std()/2.)
     histos['sigmaT_vs_pos'].SetPoint(istep,th[step]*thscan_step,sigmaT[sigmaT>0].mean()/2.)
-    histos['sigmaT_vs_pos'].SetPointError(istep,0.5,sigmaT[sigmaT>0].std()/8.)
+    histos['sigmaT_vs_pos'].SetPointError(istep,0.5,sigmaT[sigmaT>0].std()/4.)
     histos['CTR_vs_pos'].SetPoint(istep,th[step]*thscan_step,CTR[CTR>0].mean())
-    histos['CTR_vs_pos'].SetPointError(istep,0.5,CTR[CTR>0].std()/4.)
+    histos['CTR_vs_pos'].SetPointError(istep,0.5,CTR[CTR>0].std()/2.)
     histos['DT_vs_pos'].SetPoint(istep,th[step]*thscan_step,DT[DT>0].mean()-DT_0[DT_0>0].mean())
-    histos['DT_vs_pos'].SetPointError(istep,0.5,DT[DT>0].std()/4.)
+    histos['DT_vs_pos'].SetPointError(istep,0.5,DT[DT>0].std()/2.)
     histos['XT_vs_pos'].SetPoint(istep,th[step]*thscan_step,XT[XT>0].mean())
-    histos['XT_vs_pos'].SetPointError(istep,0.5,XT[XT>0].std()/4.)
+    histos['XT_vs_pos'].SetPointError(istep,0.5,XT[XT>0].std()/2.)
     istep+=1
     
 ##########################################
