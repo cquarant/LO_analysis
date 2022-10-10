@@ -15,26 +15,26 @@ import numpy as np
 
 gROOT.SetBatch(True)
 
-usage = "usage: python analysis/launch_analyze_run_array_opt.py --firstRun 1 -i /home/cmsdaq/Workspace/TOFPET/Timing-TOFPET/output/TestArray -o /home/cmsdaq/Workspace/TOFPET/Timing-TOFPET/output/TestArray/RESULTS --arrayCode 0"
+usage = "usage: python analysis/launch_analyze_run_array_opt.py --runlist 1,2,3... -i /home/cmsdaq/Workspace/TOFPET/Timing-TOFPET/output/TestArray -o /home/cmsdaq/Workspace/TOFPET/Timing-TOFPET/output/TestArray/RESULTS --arraylist 1,2,3..."
 
 parser = optparse.OptionParser(usage)
 
-parser.add_option("-r", "--firstRun", dest="firstRun",
-                  help="first run number of the position scan")
+parser.add_option("-r", "--runlist", dest="runlist",
+                  help="list of runs to analyze. Bar results from all runs will be merged")
 
 parser.add_option("-i", "--input", dest="inputDir",default="/data/TOFPET/LYSOARRAYS",
                   help="input directory")
 
-parser.add_option("-o", "--output", dest="outputDir",default="/data/TOFPET/LYSOARRAYS/RESULTS",
+parser.add_option("-o", "--output", dest="outputDir",default="test",
                   help="output directory")
 
-parser.add_option("-b", "--arrayCode", dest="arrayCode", default=-99,
+parser.add_option("-b", "--arraylist", dest="arraylist", default=-99,
                   help="code of the crystal array")
 
 (opt, args) = parser.parse_args()
 
-if not opt.firstRun:   
-    parser.error('first run number not provided')
+if not opt.runlist:   
+    parser.error('run list not provided')
 
 if not opt.inputDir:   
     parser.error('input directory not provided')
@@ -44,13 +44,20 @@ if not opt.outputDir:
 
 #------------------------------------------------
 
-nFilesInScan = 2
+runlist = list(map(int, opt.runlist.split(',')))
+nFilesInScan = len(runlist)
+runlist_str = opt.runlist.replace(',','_')
+
+arraylist = list(map(int, opt.arraylist.split(',')))
+arraylist_str = opt.arraylist.replace(',','_')
 
 #maybe this can be passed from command line 
 ov = [ 8, 4 ]
 
 
-summaryFile = str(opt.outputDir)+"/"+"summary_"+"FirstRun" + str(opt.firstRun.zfill(6)) + "_LastRun" + str((int(opt.firstRun)+(nFilesInScan-1)*3)).zfill(6) + "_ARRAY" + str(opt.arrayCode.zfill(6))+".root"
+summaryFile = str(opt.outputDir)+"/"+"summary_"+"Runs_"+runlist_str+"_ARRAY_"+arraylist_str+"_.root"
+
+print summaryFile
 
 #### Analysis Summary #####
 histos={}
@@ -64,25 +71,40 @@ treeResults={}
 
 istep=0
 for step in range(len(ov)):
-    print(step)
+
+    peak_mean=[]
+    sigmaT=[]
+    CTR=[]
+    DT=[]
+    DT_0=[]
+    XT=[]
+
+    for irun,run in enumerate(runlist):
+        if (gSystem.AccessPathName(opt.inputDir+"/tree_Run%s_ARRAY%s.root"%(str(run+step*3).zfill(6), str(arraylist[irun]).zfill(6)))):
+            print('Cannot open '+opt.inputDir+"/tree_Run%s_ARRAY%s.root"%(str(run+step*3).zfill(6),str(arraylist[irun]).zfill(6)))
+            continue
+        tfileResults[ov[step]] = TFile.Open(opt.inputDir+"/tree_Run%s_ARRAY%s.root"%(str(run+step*3).zfill(6),str(arraylist[irun]).zfill(6)))
+        treeResults[ov[step]] = tfileResults[ov[step]].Get("results")
     
-    if (gSystem.AccessPathName(opt.inputDir+"/tree_Run%s_ARRAY%s.root"%(str(int(opt.firstRun)+step*3).zfill(6),opt.arrayCode.zfill(6)))):
-        print('Cannot open '+opt.inputDir+"/tree_Run%s_ARRAY%s.root"%(str(int(opt.firstRun)+step*3).zfill(6),opt.arrayCode.zfill(6)))
-        continue
-    tfileResults[ov[step]] = TFile.Open(opt.inputDir+"/tree_Run%s_ARRAY%s.root"%(str(int(opt.firstRun)+step*3).zfill(6),opt.arrayCode.zfill(6)))
-    treeResults[ov[step]] = tfileResults[ov[step]].Get("results")
+        treeResults[ov[step]].GetEntry(0)
 
-    treeResults[ov[step]].GetEntry(0)
+        print np.array(treeResults[ov[step]].deltaT12_sigma_barCoinc)[3:10].tolist()
 
-    peak_mean=np.array(treeResults[ov[step]].peak1_mean_barCoinc)[3:10]
-    sigmaT=np.array(treeResults[ov[step]].deltaT12_sigma_barCoinc)[3:10]
-    print(sigmaT/2.)
-    print(sigmaT[sigmaT>0].mean()/2., "    ", sigmaT[sigmaT>0].std()/2.)
-    CTR=np.array(treeResults[ov[step]].CTR_sigma_barCoinc)[3:10]
-    DT=np.array(treeResults[ov[step]].CTR_mean_barCoinc)[3:10]
-    DT_0=np.array(treeResults[ov[0]].CTR_mean_barCoinc)[3:10]
-    XT=np.array(treeResults[ov[step]].Xtalk_median_barCoinc)[3:10]
+        peak_mean.append(np.array(treeResults[ov[step]].peak1_mean_barCoinc)[3:10].tolist())
+        sigmaT.append(np.array(treeResults[ov[step]].deltaT12_sigma_barCoinc)[3:10])
+        CTR.append(np.array(treeResults[ov[step]].CTR_sigma_barCoinc)[3:10])
+        DT.append(np.array(treeResults[ov[step]].CTR_mean_barCoinc)[3:10])
+        DT_0.append(np.array(treeResults[ov[0]].CTR_mean_barCoinc)[3:10])
+        XT.append(np.array(treeResults[ov[step]].Xtalk_median_barCoinc)[3:10])
 
+    peak_mean = np.array(peak_mean)
+    sigmaT = np.array(sigmaT)
+    CTR = np.array(CTR)
+    DT = np.array(DT)
+    DT_0 = np.array(DT_0)
+    XT = np.array(XT)
+
+    print 'step ', istep, ' sigmaT mean ', sigmaT[peak_mean>30].mean()/2., sigmaT[peak_mean>30].std()/2. 
     histos['LY_vs_pos'].SetPoint(istep,ov[step],peak_mean[peak_mean>30].mean())
     histos['LY_vs_pos'].SetPointError(istep,0.5,peak_mean[peak_mean>30].std())
     histos['sigmaT_vs_pos'].SetPoint(istep,ov[step],sigmaT[sigmaT>0].mean()/2.)
@@ -95,12 +117,12 @@ for step in range(len(ov)):
     histos['XT_vs_pos'].SetPointError(istep,0.5,XT[XT>0].std())
     istep+=1
     
-##########################################
+############################################
 
 histos['LY_vs_pos'].Print()
 histos['sigmaT_vs_pos'].Print()
 
-mergedLabel = str(opt.outputDir)+"/"+"tree_"+"FirstRun" + str(opt.firstRun.zfill(6)) + "_LastRun" + str((int(opt.firstRun)+(nFilesInScan-1)*3)).zfill(6) + "_ARRAY" + str(opt.arrayCode.zfill(6))
+mergedLabel = str(opt.outputDir)+"/"+"tree_Runs_"+runlist_str+ "_LastRun"+"_ARRAYS_"+arraylist_str
 
 c1_LY = TCanvas("phe_peak", "phe_peak", 900, 700)     
 
